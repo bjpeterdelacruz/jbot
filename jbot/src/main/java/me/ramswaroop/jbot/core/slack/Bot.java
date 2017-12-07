@@ -113,9 +113,18 @@ public abstract class Bot {
                 methodWrapper.setNext(next);
                 methodWrapper.setController(controllerPOJO);
 
-                if (!conversationMethodNames.contains(method.getName())) {
+                String methodName = method.getName();
+
+                if (methodNameMap.containsKey(methodName)) {
+                    throw new AssertionError(
+                            "Controller with method '" + methodName + "' " + "already exists. "
+                                    + "All controllers methods names in the same Bot must be unique.");
+                }
+
+                if (!conversationMethodNames.contains(methodName)) {
                     for (EventType eventType : eventTypes) {
-                        List<MethodWrapper> methodWrappers = eventToMethodsMap.get(eventType.name());
+                        List<MethodWrapper> methodWrappers =
+                                eventToMethodsMap.get(eventType.name());
 
                         if (methodWrappers == null) {
                             methodWrappers = new ArrayList<>();
@@ -125,7 +134,7 @@ public abstract class Bot {
                         eventToMethodsMap.put(eventType.name(), methodWrappers);
                     }
                 }
-                methodNameMap.put(method.getName(), methodWrapper);
+                methodNameMap.put(methodName, methodWrapper);
             }
         }
     }
@@ -326,15 +335,14 @@ public abstract class Bot {
                     Object controller = methodWrapper.getController();
                     if (controller == this) {
                         if (method.getParameterCount() == 3) {
-                            method.invoke(controller, session, event,
-                                methodWrapper.getMatcher());
+                            method.invoke(controller, session, event, methodWrapper.getMatcher());
                         } else {
                             method.invoke(controller, session, event);
                         }
-                    }else{
+                    } else {
                         if (method.getParameterCount() == 4) {
                             method.invoke(controller, this, session, event,
-                                methodWrapper.getMatcher());
+                                    methodWrapper.getMatcher());
                         } else {
                             method.invoke(controller, this, session, event);
                         }
@@ -362,7 +370,12 @@ public abstract class Bot {
                 EventType[] eventTypes = methodWrapper.getMethod().getAnnotation(Controller.class).events();
                 for (EventType eventType : eventTypes) {
                     if (eventType.name().equals(event.getType().toUpperCase())) {
-                        methodWrapper.getMethod().invoke(this, session, event);
+                        Object controller = methodWrapper.getController();
+                        if (controller == this) {
+                            methodWrapper.getMethod().invoke(controller, session, event);
+                        } else {
+                            methodWrapper.getMethod().invoke(controller, this, session, event);
+                        }
                         return;
                     }
                 }
@@ -487,6 +500,7 @@ public abstract class Bot {
             MethodWrapper that = (MethodWrapper) o;
 
             if (!method.equals(that.method)) return false;
+            if (!controller.equals(that.controller)) return false;
             if (pattern != null ? !pattern.equals(that.pattern) : that.pattern != null) return false;
             if (matcher != null ? !matcher.equals(that.matcher) : that.matcher != null) return false;
             return next != null ? next.equals(that.next) : that.next == null;
@@ -496,6 +510,7 @@ public abstract class Bot {
         @Override
         public int hashCode() {
             int result = method.hashCode();
+            result = 31 * result + controller.hashCode();
             result = 31 * result + (pattern != null ? pattern.hashCode() : 0);
             result = 31 * result + (matcher != null ? matcher.hashCode() : 0);
             result = 31 * result + (next != null ? next.hashCode() : 0);
