@@ -8,7 +8,7 @@
         <version>1.4.0.RELEASE</version>
         <relativePath /> <!-- lookup parent from repository -->
     </parent>
-    
+
     <groupId>me.ramswaroop.jbot</groupId>
     <artifactId>jbot-parent</artifactId>
     <version>3.0.3-SNAPSHOT</version>
