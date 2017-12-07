@@ -87,7 +87,15 @@ public abstract class Bot {
      * Construct a map of all the controller methods to handle RTM Events.
      */
     public Bot() {
-        Method[] methods = this.getClass().getMethods();
+        registerController(this);
+    }
+
+    /**
+     * Register controller in bot
+     * @param controllerPOJO controller with methods to handle RTM Events.
+     */
+    public void registerController(Object controllerPOJO) {
+        Method[] methods = controllerPOJO.getClass().getMethods();
         for (Method method : methods) {
             if (method.isAnnotationPresent(Controller.class)) {
                 Controller controller = method.getAnnotation(Controller.class);
@@ -103,6 +111,7 @@ public abstract class Bot {
                 methodWrapper.setMethod(method);
                 methodWrapper.setPattern(pattern);
                 methodWrapper.setNext(next);
+                methodWrapper.setController(controllerPOJO);
 
                 if (!conversationMethodNames.contains(method.getName())) {
                     for (EventType eventType : eventTypes) {
@@ -314,10 +323,21 @@ public abstract class Bot {
             if (methodWrappers != null) {
                 for (MethodWrapper methodWrapper : methodWrappers) {
                     Method method = methodWrapper.getMethod();
-                    if (method.getParameterCount() == 3) {
-                        method.invoke(this, session, event, methodWrapper.getMatcher());
-                    } else {
-                        method.invoke(this, session, event);
+                    Object controller = methodWrapper.getController();
+                    if (controller == this) {
+                        if (method.getParameterCount() == 3) {
+                            method.invoke(controller, session, event,
+                                methodWrapper.getMatcher());
+                        } else {
+                            method.invoke(controller, session, event);
+                        }
+                    }else{
+                        if (method.getParameterCount() == 4) {
+                            method.invoke(controller, this, session, event,
+                                methodWrapper.getMatcher());
+                        } else {
+                            method.invoke(controller, this, session, event);
+                        }
                     }
                 }
             }
@@ -417,6 +437,7 @@ public abstract class Bot {
         private String pattern;
         private Matcher matcher;
         private String next;
+        private Object controller;
 
         public Method getMethod() {
             return method;
@@ -448,6 +469,14 @@ public abstract class Bot {
 
         public void setNext(String next) {
             this.next = next;
+        }
+
+        public Object getController() {
+            return controller;
+        }
+
+        public void setController(Object controller) {
+            this.controller = controller;
         }
 
         @Override
